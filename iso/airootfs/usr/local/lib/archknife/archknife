@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""archknife — Arch Linux Installer"""
+import os
+import sys
+import time
+
+
+def main():
+    if os.geteuid() != 0:
+        print("\n  Error: archknife must be run as root\n", file=sys.stderr)
+        sys.exit(1)
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, script_dir)
+
+    from lib.config import Config
+    from lib.utils import detect_boot_mode, detect_install_method, is_online
+    from lib.app import App
+    from lib import installer
+
+    config = Config()
+    config.boot_mode = detect_boot_mode()
+    config.install_method = detect_install_method(script_dir)
+
+    if not config.install_method:
+        print("\n  Error: pacstrap not found.", file=sys.stderr)
+        print("  Make sure arch-install-scripts is installed.\n", file=sys.stderr)
+        sys.exit(1)
+
+    # Wait briefly for network on boot
+    if not is_online():
+        print("  Waiting for network...", end="", flush=True)
+        for _ in range(10):
+            if is_online():
+                break
+            time.sleep(1)
+        print()
+
+    app = App(config, script_dir)
+    install = app.run()
+
+    if install:
+        installer.run_install(config, script_dir)
+
+
+if __name__ == "__main__":
+    main()
